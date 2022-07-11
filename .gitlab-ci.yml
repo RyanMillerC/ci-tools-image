@@ -1,0 +1,68 @@
+default:
+  # Setting an image here is important because the ci-tools image is configured
+  # as the GitLab Runner default image. If something happens to the ci-tools
+  # image in Quay, all pipelines, including this one will fail. By explicitly
+  # setting the image to a Red Hat image, this pipeline will still succeed to
+  # populate Quay with a new ci-tools image.
+  image: registry.redhat.io/openshift4/ose-cli:latest
+
+variables:
+  APP_NAME: ci-tools
+  # IMAGE_NAME should not have a tag at the end! That will be detemined based on branch
+  IMAGE_NAME: quay-registry-quay-quay-enterprise.apps.hub.taco.moe/ci-tools/ci-tools
+
+build-image:
+  script:
+    - |
+      oc get buildconfig $CI_COMMIT_BRANCH &> /dev/null || oc create -f - << EOF
+        apiVersion: build.openshift.io/v1
+        kind: BuildConfig
+        metadata:
+          name: "${APP_NAME}-${CI_COMMIT_BRANCH}"
+          namespace: gitlab-runner
+        spec:
+          failedBuildsHistoryLimit: 5
+          runPolicy: Serial
+          source:
+            git:
+              ref: $CI_COMMIT_BRANCH
+              uri: "${CI_PROJECT_URL}.git"
+            type: Git
+          strategy:
+            type: Docker
+          successfulBuildsHistoryLimit: 5
+      EOF
+    - oc start-build "${APP_NAME}-${CI_COMMIT_BRANCH}" --follow --wait
+  only:
+    - dev
+
+build-release-image:
+  script:
+    - |
+      oc get buildconfig "${APP_NAME}-latest" &> /dev/null || oc create -f - << EOF
+        apiVersion: build.openshift.io/v1
+        kind: BuildConfig
+        metadata:
+          name: "${APP_NAME}-latest"
+          namespace: gitlab-runner
+        spec:
+          failedBuildsHistoryLimit: 5
+          output:
+            pushSecret:
+              name: push-secret # This needs to be created
+            to:
+              kind: DockerImage
+              name: "${IMAGE_NAME}:latest"
+          runPolicy: Serial
+          source:
+            git:
+              ref: $CI_COMMIT_BRANCH
+              uri: "${CI_PROJECT_URL}.git"
+            type: Git
+          strategy:
+            type: Docker
+          successfulBuildsHistoryLimit: 5
+      EOF
+    - oc start-build "${APP_NAME}-latest" --follow --wait
+  only:
+    - main
