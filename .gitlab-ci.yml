@@ -9,7 +9,7 @@ default:
 variables:
   APP_NAME: ci-tools
   # IMAGE_NAME should not have a tag at the end! That will be detemined based on branch
-  IMAGE_NAME: quay-registry-quay-quay-enterprise.apps.hub.taco.moe/ci-tools/ci-tools
+  IMAGE_NAME: quay-registry-quay-quay-enterprise.apps.hub.taco.moe/hello-world/ci-tools
 
 build-image:
   script:
